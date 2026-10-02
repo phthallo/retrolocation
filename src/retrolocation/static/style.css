@@ -63,11 +63,6 @@ main {
   }
 }
 
-nav {
-  border: 1px solid var(--border);
-  padding: 0.5rem;
-}
-
 h1 {
   font-size: 2.5em;
   font-weight: normal;
