@@ -33,7 +33,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 if ADMIN_SECRET is not None and len(ADMIN_SECRET) < 32:
     raise RuntimeError("RETROLOCATION_ADMIN_SECRET must be at least 32 characters")
-if QUERY_SECRET is not None and len(QUERY_SECRET) < 32:
+if not QUERY_SECRET or len(QUERY_SECRET) < 32:
     raise RuntimeError("RETROLOCATION_QUERY_SECRET must be at least 32 characters")
 if not RETRO_USER_ID:
     raise RuntimeError("RETRO_USER_ID must be set")
@@ -138,13 +138,13 @@ def location(
     spread: bool = False,
     x_query_secret: str = Header(""),
 ):
+    if not secrets.compare_digest(x_query_secret.encode(), QUERY_SECRET.encode()):
+        raise HTTPException(403, "forbidden")
     if count is None and weeks is None and not spread:
         result = cached("latest", latest_location)
         if result is None:
             raise HTTPException(404, "no posts with a location")
         return result
-    if not QUERY_SECRET or not secrets.compare_digest(x_query_secret.encode(), QUERY_SECRET.encode()):
-        raise HTTPException(403, "forbidden")
     if count is None or weeks is None:
         raise HTTPException(422, "count and weeks must be passed together")
     # one cached fetch of the widest window serves every count/weeks combination
