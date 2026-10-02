@@ -23,6 +23,7 @@ TOKEN_FILE = Path(os.environ.get("RETRO_TOKEN_FILE", ".retro_refresh_token"))
 ADMIN_SECRET = os.environ.get("RETROLOCATION_ADMIN_SECRET")
 QUERY_SECRET = os.environ.get("RETROLOCATION_QUERY_SECRET")
 RETRO_USER_ID = os.environ.get("RETRO_USER_ID")
+CORS_ORIGINS = [o.strip() for o in os.environ.get("RETROLOCATION_CORS_ORIGINS", "").split(",") if o.strip()]
 CACHE_SECONDS = 300
 ERROR_BACKOFF_SECONDS = 60
 WEEK_SECONDS = 7 * 24 * 3600
@@ -46,7 +47,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://phthallo.com"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["GET"],
     allow_headers=["X-Query-Secret"],
 )
