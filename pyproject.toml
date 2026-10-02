@@ -1,0 +1,23 @@
+[project]
+name = "retrolocation"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { email = "annabelquach13@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "cryptography>=50.0.2",
+    "fastapi[standard]>=0.142.2",
+    "google-cloud-firestore>=2.34.0",
+    "pillow>=12.3.0",
+    "retro-sdk==0.4.5",
+]
+
+[project.scripts]
+retrolocation = "retrolocation:main"
+
+[build-system]
+requires = ["uv_build>=0.12.22,<0.13.0"]
+build-backend = "uv_build"

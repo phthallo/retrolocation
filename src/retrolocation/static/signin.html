@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>retro sign-in</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <nav>/ <a href="https://phthallo.com">phthallo</a> / <a href="/">retrolocation</a></nav>
+    <h1>sign in to retro.</h1>
+    <form id="send-form">
+      <label>admin secret
+        <input type="password" id="secret" required autocomplete="current-password">
+      </label>
+      <label>phone number (with country code)
+        <input type="tel" id="phone" placeholder="+61..." required autocomplete="tel">
+      </label>
+      <button type="submit">send code</button>
+    </form>
+    <form id="verify-form" hidden>
+      <label>code from sms
+        <input type="text" id="code" inputmode="numeric" required autocomplete="one-time-code">
+      </label>
+      <button type="submit">sign in</button>
+    </form>
+    <p class="muted" id="status" role="status"></p>
+  </main>
+  <script>
+    const statusEl = document.getElementById("status");
+    const sendForm = document.getElementById("send-form");
+    const verifyForm = document.getElementById("verify-form");
+
+    async function post(path, body) {
+      const r = await fetch(path, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-admin-secret": document.getElementById("secret").value,
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (r.status === 403 && data.detail === "forbidden") throw new Error("wrong admin secret.");
+        if (r.status === 401) throw new Error("wrong code. check the sms and try again.");
+        throw new Error(data.detail || `request failed (${r.status}).`);
+      }
+      return data;
+    }
+
+    async function submit(form, action) {
+      const button = form.querySelector("button");
+      button.disabled = true;
+      try {
+        await action();
+      } catch (e) {
+        statusEl.textContent = e.message;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    sendForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      submit(sendForm, async () => {
+        await post("/auth/send-code", { phone_number: document.getElementById("phone").value });
+        verifyForm.hidden = false;
+        document.getElementById("code").focus();
+        statusEl.textContent = "code sent.";
+      });
+    });
+
+    verifyForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      submit(verifyForm, async () => {
+        await post("/auth/verify", {
+          phone_number: document.getElementById("phone").value,
+          code: document.getElementById("code").value,
+        });
+        statusEl.textContent = "signed in.";
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+:root {
+  --bg: #120f19;
+  --text: #fff;
+  --muted: #947b82;
+  --border: #947b82b3;
+  --hover-bg: #dcb8b0;
+  --hover-text: #000;
+  --selection: #9bb0cd;
+  --topography: url("https://phthallo.com/topography.svg");
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #fbf0c9;
+    --text: #242029;
+    --muted: #b47522;
+    --border: #b47522;
+    --hover-bg: #d5c4a3;
+    --hover-text: #242029;
+    --selection: #d5c4a3;
+    --topography: url("https://phthallo.com/topographylight.svg");
+    color-scheme: light;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+::selection {
+  background: var(--selection);
+  color: #000;
+}
+
+body {
+  margin: 0;
+  background: var(--bg) var(--topography);
+  color: var(--text);
+  font-family: monospace;
+  line-height: 1.5;
+}
+
+main {
+  min-height: 100dvh;
+  margin: auto;
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  main {
+    padding: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  main {
+    width: 50%;
+  }
+}
+
+nav {
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+}
+
+h1 {
+  font-size: 2.5em;
+  font-weight: normal;
+  margin: 0;
+  padding: 0.5rem 0;
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+a {
+  color: inherit;
+}
+
+a:hover,
+button:hover {
+  background: var(--hover-bg);
+  color: var(--hover-text);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 24rem;
+  margin-bottom: 1rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+input,
+button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+}
+
+button {
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}

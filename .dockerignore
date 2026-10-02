@@ -1,0 +1,6 @@
+.git
+.venv
+.retro_refresh_token*
+**/__pycache__
+Dockerfile
+.dockerignore
