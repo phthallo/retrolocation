@@ -138,7 +138,7 @@ def location(
     spread: bool = False,
     x_query_secret: str = Header(""),
 ):
-    if count is None and weeks is None:
+    if count is None and weeks is None and not spread:
         result = cached("latest", latest_location)
         if result is None:
             raise HTTPException(404, "no posts with a location")
