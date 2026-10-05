@@ -10,10 +10,16 @@
 <body>
   <main>
     <h1>sign in to retro.</h1>
-    <form id="send-form">
+    <form id="check-form">
       <label>admin secret
         <input type="password" id="secret" required autocomplete="current-password">
       </label>
+      <label>retro user id
+        <input type="text" id="user-id" required autocomplete="username" spellcheck="false">
+      </label>
+      <button type="submit">continue</button>
+    </form>
+    <form id="send-form" hidden>
       <label>phone number (with country code)
         <input type="tel" id="phone" placeholder="+61..." required autocomplete="tel">
       </label>
@@ -29,6 +35,7 @@
   </main>
   <script>
     const statusEl = document.getElementById("status");
+    const checkForm = document.getElementById("check-form");
     const sendForm = document.getElementById("send-form");
     const verifyForm = document.getElementById("verify-form");
 
@@ -38,12 +45,14 @@
         headers: {
           "content-type": "application/json",
           "x-admin-secret": document.getElementById("secret").value,
+          "x-retro-user-id": document.getElementById("user-id").value.trim(),
         },
         body: JSON.stringify(body),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
         if (r.status === 403 && data.detail === "forbidden") throw new Error("wrong admin secret.");
+        if (r.status === 403 && data.detail === "wrong retro user id") throw new Error("that retro user id isn't the authorised one.");
         if (r.status === 401) throw new Error("wrong code. check the sms and try again.");
         throw new Error(data.detail || `request failed (${r.status}).`);
       }
@@ -61,6 +70,17 @@
         button.disabled = false;
       }
     }
+
+    checkForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      submit(checkForm, async () => {
+        await post("/auth/check", {});
+        checkForm.hidden = true;
+        sendForm.hidden = false;
+        document.getElementById("phone").focus();
+        statusEl.textContent = "";
+      });
+    });
 
     sendForm.addEventListener("submit", (e) => {
       e.preventDefault();

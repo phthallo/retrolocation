@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -26,7 +26,8 @@ RETRO_USER_ID = os.environ.get("RETRO_USER_ID")
 CORS_ORIGINS = [o.strip() for o in os.environ.get("RETROLOCATION_CORS_ORIGINS", "").split(",") if o.strip()]
 CACHE_SECONDS = 300
 ERROR_BACKOFF_SECONDS = 60
-WEEK_SECONDS = 7 * 24 * 3600
+DAY_SECONDS = 24 * 3600
+WEEK_SECONDS = 7 * DAY_SECONDS
 # caps on the count/weeks params; MAX_WEEKS bounds how many weeks one refresh fetches
 MAX_COUNT = 50
 MAX_WEEKS = 12
@@ -62,9 +63,12 @@ _cache_locks = {"latest": threading.Lock(), "recent": threading.Lock()}
 _verify_lock = threading.Lock()
 
 
-def require_admin(x_admin_secret: str = Header("")):
+def require_admin(x_admin_secret: str = Header(""), x_retro_user_id: str = Header("")):
     if not ADMIN_SECRET or not secrets.compare_digest(x_admin_secret.encode(), ADMIN_SECRET.encode()):
         raise HTTPException(403, "forbidden")
+    # not a secret (anyone can look it up from a username), so this only catches the wrong account early
+    if x_retro_user_id != RETRO_USER_ID:
+        raise HTTPException(403, "wrong retro user id")
 
 
 def require_query_secret(x_query_secret: str = Header("")):
@@ -113,6 +117,11 @@ def sign_in_page():
     return FileResponse(STATIC_DIR / "signin.html")
 
 
+@app.post("/auth/check", dependencies=[Depends(require_admin)])
+def check():
+    return {"ok": True}
+
+
 @app.post("/auth/send-code", dependencies=[Depends(require_admin)])
 def send_code(body: SendCodeRequest):
     Retro().send_code(body.phone_number)
@@ -139,6 +148,7 @@ def verify(body: VerifyRequest):
 
 @app.get("/location", dependencies=[Depends(require_query_secret)])
 def location(
+    response: Response,
     count: int | None = Query(None, ge=1, le=MAX_COUNT),
     weeks: int | None = Query(None, ge=1, le=MAX_WEEKS),
     spread: bool = False,
@@ -147,24 +157,33 @@ def location(
         result = cached("latest", latest_location)
         if result is None:
             raise HTTPException(404, "no posts with a location")
-        return result
-    if count is None or weeks is None:
+    elif count is None or weeks is None:
         raise HTTPException(422, "count and weeks must be passed together")
-    return recent_locations(count, weeks, spread)
+    else:
+        result = recent_locations(count, weeks, spread)
+    # private: shared caches must not serve a secret-gated response to other clients
+    response.headers["Cache-Control"] = f"private, max-age={CACHE_SECONDS}"
+    return result
 
 
 @app.get("/public/recent")
-def public_recent():
-    return recent_locations(count=3, weeks=4, spread=True)
+def public_recent(response: Response):
+    response.headers["Cache-Control"] = f"public, max-age={DAY_SECONDS}"
+    # skip the last day so the public endpoint never shows where you are right now
+    return recent_locations(count=3, weeks=4, spread=True, delay=DAY_SECONDS)
 
 
-def recent_locations(count: int, weeks: int, spread: bool) -> dict:
+def recent_locations(count: int, weeks: int, spread: bool, delay: float = 0) -> dict:
     # one cached fetch of the widest window serves every count/weeks combination
     now = time.time()
+    end = now - delay
     cutoff = now - weeks * WEEK_SECONDS
-    photos = list(takewhile(lambda p: p[0] >= cutoff, cached("recent", recent_located_photos)))
+    photos = [
+        p for p in takewhile(lambda p: p[0] >= cutoff, cached("recent", recent_located_photos))
+        if p[0] <= end
+    ]
     if spread:
-        return {"locations": spread_out(photos, count, now, cutoff)}
+        return {"locations": spread_out(photos, count, end, cutoff)}
     names = []
     for _, name in photos:
         if name not in names:
