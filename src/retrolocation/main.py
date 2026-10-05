@@ -56,7 +56,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 _client: Retro | None = None
 _client_mtime: float | None = None
 _cache: dict[str, tuple[float, Any]] = {}
-_failed_at: dict[str, float] = {}
+_failed_at: dict[str, tuple[float, HTTPException]] = {}
 _cache_locks = {"latest": threading.Lock(), "recent": threading.Lock()}
 # redirect_stdout swaps the process-wide sys.stdout, so overlapping calls could leave it redirected
 _verify_lock = threading.Lock()
@@ -64,6 +64,11 @@ _verify_lock = threading.Lock()
 
 def require_admin(x_admin_secret: str = Header("")):
     if not ADMIN_SECRET or not secrets.compare_digest(x_admin_secret.encode(), ADMIN_SECRET.encode()):
+        raise HTTPException(403, "forbidden")
+
+
+def require_query_secret(x_query_secret: str = Header("")):
+    if not secrets.compare_digest(x_query_secret.encode(), QUERY_SECRET.encode()):
         raise HTTPException(403, "forbidden")
 
 
@@ -132,15 +137,12 @@ def verify(body: VerifyRequest):
     return {"user_id": uid}
 
 
-@app.get("/location")
+@app.get("/location", dependencies=[Depends(require_query_secret)])
 def location(
     count: int | None = Query(None, ge=1, le=MAX_COUNT),
     weeks: int | None = Query(None, ge=1, le=MAX_WEEKS),
     spread: bool = False,
-    x_query_secret: str = Header(""),
 ):
-    if not secrets.compare_digest(x_query_secret.encode(), QUERY_SECRET.encode()):
-        raise HTTPException(403, "forbidden")
     if count is None and weeks is None and not spread:
         result = cached("latest", latest_location)
         if result is None:
@@ -148,6 +150,15 @@ def location(
         return result
     if count is None or weeks is None:
         raise HTTPException(422, "count and weeks must be passed together")
+    return recent_locations(count, weeks, spread)
+
+
+@app.get("/public/recent")
+def public_recent():
+    return recent_locations(count=3, weeks=4, spread=True)
+
+
+def recent_locations(count: int, weeks: int, spread: bool) -> dict:
     # one cached fetch of the widest window serves every count/weeks combination
     now = time.time()
     cutoff = now - weeks * WEEK_SECONDS
@@ -201,15 +212,18 @@ def cached(key: str, fetch: Callable[[], Any]) -> Any:
         now = time.monotonic()
         entry = _cache.get(key)
         if entry is None or now - entry[0] > CACHE_SECONDS:
-            if entry is None and now - _failed_at.get(key, 0.0) < ERROR_BACKOFF_SECONDS:
-                raise HTTPException(503, "retro is unavailable")
+            failed = _failed_at.get(key)
+            if failed and now - failed[0] < ERROR_BACKOFF_SECONDS:
+                raise failed[1]
             try:
                 entry = (now, fetch())
-            except HTTPException:
+            except HTTPException as e:
+                # back off here too: the wrong-account check calls retro on every attempt
+                _failed_at[key] = (now, e)
                 raise
             except Exception:
                 logger.exception("retro lookup failed for %s", key)
-                _failed_at[key] = now
+                _failed_at[key] = (now, HTTPException(503, "retro is unavailable"))
                 if entry is None:
                     raise HTTPException(503, "retro is unavailable")
                 # keep serving the last known result until the next refresh
