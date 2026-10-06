@@ -29,11 +29,11 @@ With `spread=true`, it will prefer locations that are distinct (so favouring loc
 
 | variable | required | default | description |
 | --- | --- | --- | --- |
-| `RETROLOCATION_ADMIN_SECRET` | yes | none | 32 character+ secret sent in the `x-admin-secret` header on `/auth/*`, along with `RETRO_USER_ID` in the `x-retro-user-id` header. the sign-in page asks for both before showing the phone number step. |
+| `RETROLOCATION_ADMIN_SECRET` | yes | none | 32 character+ secret sent in the `x-admin-secret` header on `/auth/*` |
 | `RETROLOCATION_QUERY_SECRET` | yes | none | 32 character+ secret sent in the `x-query-secret` header to use `/location`. |
 | `RETROLOCATION_CORS_ORIGINS` | no | none | origins allowed to call `/location` and `/public/recent` from a browser|
 | `RETRO_USER_ID` | yes | none | retro user id of authorised account, see the next subheading |
-| `RETRO_TOKEN_KEY` | yes | none | fernet key used to encrypt the saved refresh token. the server won't start without a valid key. . generate with `uv run python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `RETRO_TOKEN_KEY` | yes | none | fernet key used to encrypt the saved refresh token. |
 | `RETRO_TOKEN_FILE` | no | `.retro_refresh_token` (docker: `/data/retro_refresh_token`) | where the encrypted refresh token is saved. |
 | `HOST` | no | `127.0.0.1` | address to bind |
 | `PORT` | no | `8000` | port to listen on. |
