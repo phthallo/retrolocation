@@ -9,23 +9,21 @@ Deploy using the provided Dockerfile.
 ```
 GET /public/recent
 ```
-Public. Returns up to 3 spread-out locations from the past 4 weeks, the same as `/location?count=3&weeks=4&spread=true` with a ~24h delay. Successful responses are sent with `Cache-Control: public, max-age=86400`.
-
-`/location` responses are sent with `Cache-Control: private, max-age=300`. Errors are not cached on either endpoint.
+Public. Returns up to 3 spread-out locations from the past 4 weeks, the same as `/location?count=3&weeks=4&spread=true` with a ~24h delay. 
 
 ```
 GET /location
 X-Query-Secret: <RETROLOCATION_QUERY_SECRET>
 ```
-Returns the location of your latest Retro post (including posts you reshared). Requests without the `X-Query-Secret` header get a 403.
+Private. Returns the location of your latest Retro post (including posts you reshared).
 
 ```
 GET /location?count=x&weeks=y[&spread=true]
 X-Query-Secret: <RETROLOCATION_QUERY_SECRET>
 ```
-Returns up to `x` distinct locations from the past `y` weeks, newest first. If there are fewer than `x` distinct locations, it returns all of them. `count` must be 1–50 and `weeks` 1–12. Requests without the `X-Query-Secret` header get a 403.
+Returns up to `x` distinct locations from the past `y` weeks, newest first. `count` must be 1–50 and `weeks` 1–12. 
 
-With `spread=true`, the window is split into `x` equal time slots and one location is picked per slot, preferring locations that are distinct (so favouring locations in different cities, for instance).
+With `spread=true`, it will prefer locations that are distinct (so favouring locations in different cities, for instance).
 
 # Environment variables
 
