@@ -45,3 +45,7 @@ Get your internal Retro user ID by running this command:
 ```
 uv run python -c "from retro_sdk import Retro; print(Retro().get_user_id('<YOURRETROUSERNAME>'))"
 ```
+
+## Notes
+
+If you plan on using `/location` endpoint publicly, always call it from the server side to avoid leaking your entire location history.
