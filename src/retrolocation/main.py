@@ -170,8 +170,8 @@ def location(
 @app.get("/public/recent")
 def public_recent(response: Response):
     response.headers["Cache-Control"] = f"public, max-age={DAY_SECONDS}"
-    # skip the last day so the public endpoint never shows where you are right now
-    return recent_locations(count=3, weeks=4, spread=True, delay=DAY_SECONDS)
+    # skip the last two days so the public endpoint never shows where you are right now
+    return recent_locations(count=3, weeks=4, spread=True, delay=2 * DAY_SECONDS)
 
 
 def recent_locations(count: int, weeks: int, spread: bool, delay: float = 0) -> dict:

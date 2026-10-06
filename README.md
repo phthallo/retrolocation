@@ -9,7 +9,7 @@ Deploy using the provided Dockerfile.
 ```
 GET /public/recent
 ```
-Public. Returns up to 3 spread-out locations from the past 4 weeks, the same as `/location?count=3&weeks=4&spread=true` with a ~24h delay. 
+Public. Returns up to 3 spread-out locations from the past 4 weeks, the same as `/location?count=3&weeks=4&spread=true` with a ~48h delay. 
 
 ```
 GET /location
