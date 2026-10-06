@@ -57,7 +57,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 _client: Retro | None = None
 _client_mtime: float | None = None
 _cache: dict[str, tuple[float, Any]] = {}
-_failed_at: dict[str, tuple[float, HTTPException]] = {}
+# (when, status code, detail) of the last failed refresh per key
+_failed_at: dict[str, tuple[float, int, str]] = {}
 _cache_locks = {"latest": threading.Lock(), "recent": threading.Lock()}
 # redirect_stdout swaps the process-wide sys.stdout, so overlapping calls could leave it redirected
 _verify_lock = threading.Lock()
@@ -233,16 +234,17 @@ def cached(key: str, fetch: Callable[[], Any]) -> Any:
         if entry is None or now - entry[0] > CACHE_SECONDS:
             failed = _failed_at.get(key)
             if failed and now - failed[0] < ERROR_BACKOFF_SECONDS:
-                raise failed[1]
+                # a fresh exception each time: re-raising one instance grows its traceback forever
+                raise HTTPException(failed[1], failed[2])
             try:
                 entry = (now, fetch())
             except HTTPException as e:
                 # back off here too: the wrong-account check calls retro on every attempt
-                _failed_at[key] = (now, e)
+                _failed_at[key] = (now, e.status_code, e.detail)
                 raise
             except Exception:
                 logger.exception("retro lookup failed for %s", key)
-                _failed_at[key] = (now, HTTPException(503, "retro is unavailable"))
+                _failed_at[key] = (now, 503, "retro is unavailable")
                 if entry is None:
                     raise HTTPException(503, "retro is unavailable")
                 # keep serving the last known result until the next refresh
