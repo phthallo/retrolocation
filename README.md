@@ -7,9 +7,9 @@ Exposes the location of your most recently shared Retro (https://retro.app/) pho
 Deploy using the provided Dockerfile. 
 
 ```
-GET /public/recent
+GET /public/recent[?coarse=false]
 ```
-Public. Returns up to 3 spread-out locations from the past 4 weeks, the same as `/location?count=3&weeks=4&spread=true` with a ~48h delay. 
+Public. Returns up to 3 spread-out locations from the past 4 weeks, the same as `/location?count=3&weeks=4&spread=true&coarse=true` with a ~48h delay. 
 
 ```
 GET /location
@@ -25,11 +25,20 @@ Returns up to `x` distinct locations from the past `y` weeks, newest first. `cou
 
 With `spread=true`, it will prefer locations that are distinct (so favouring locations in different cities, for instance).
 
+Both forms accept `coarse=true`, which drops the first comma-separated part of each location (`Bondi, Sydney, Australia` becomes `Sydney, Australia`). Locations that collapse to the same name count as one.
+
+```
+POST /cache/clear
+X-Admin-Secret: <RETROLOCATION_ADMIN_SECRET>
+X-Retro-User-Id: <RETRO_USER_ID>
+```
+Admin. Drops the in-memory location cache so the next request fetches from Retro. Browsers and CDNs may still hold `/public/recent` for up to a day because of its `Cache-Control` header.
+
 # Environment variables
 
 | variable | required | default | description |
 | --- | --- | --- | --- |
-| `RETROLOCATION_ADMIN_SECRET` | yes | none | 32 character+ secret sent in the `x-admin-secret` header on `/auth/*` |
+| `RETROLOCATION_ADMIN_SECRET` | yes | none | 32 character+ secret sent in the `x-admin-secret` header on `/auth/*` and `/cache/clear` |
 | `RETROLOCATION_QUERY_SECRET` | yes | none | 32 character+ secret sent in the `x-query-secret` header to use `/location`. |
 | `RETROLOCATION_CORS_ORIGINS` | no | none | origins allowed to call `/location` and `/public/recent` from a browser|
 | `RETRO_USER_ID` | yes | none | retro user id of authorised account, see the next subheading |

@@ -147,34 +147,53 @@ def verify(body: VerifyRequest):
     return {"user_id": uid}
 
 
+@app.post("/cache/clear", dependencies=[Depends(require_admin)])
+def clear_cache():
+    # also drop the error backoff so the next request retries retro right away
+    _cache.clear()
+    _failed_at.clear()
+    return {"cleared": True}
+
+
 @app.get("/location", dependencies=[Depends(require_query_secret)])
 def location(
     response: Response,
     count: int | None = Query(None, ge=1, le=MAX_COUNT),
     weeks: int | None = Query(None, ge=1, le=MAX_WEEKS),
     spread: bool = False,
+    coarse: bool = False,
 ):
     if count is None and weeks is None and not spread:
         result = cached("latest", latest_location)
         if result is None:
             raise HTTPException(404, "no posts with a location")
+        if coarse:
+            result = {"location": coarsen(result["location"])}
     elif count is None or weeks is None:
         raise HTTPException(422, "count and weeks must be passed together")
     else:
-        result = recent_locations(count, weeks, spread)
+        result = recent_locations(count, weeks, spread, coarse=coarse)
     # private: shared caches must not serve a secret-gated response to other clients
     response.headers["Cache-Control"] = f"private, max-age={CACHE_SECONDS}"
     return result
 
 
 @app.get("/public/recent")
-def public_recent(response: Response):
+def public_recent(response: Response, coarse: bool = True):
     response.headers["Cache-Control"] = f"public, max-age={DAY_SECONDS}"
     # skip the last two days so the public endpoint never shows where you are right now
-    return recent_locations(count=3, weeks=4, spread=True, delay=2 * DAY_SECONDS)
+    return recent_locations(count=3, weeks=4, spread=True, delay=2 * DAY_SECONDS, coarse=coarse)
 
 
-def recent_locations(count: int, weeks: int, spread: bool, delay: float = 0) -> dict:
+def coarsen(name: str) -> str:
+    """Drop the most specific comma-separated part: "Bondi, Sydney, Australia" -> "Sydney, Australia"."""
+    _, sep, rest = name.partition(",")
+    return rest.strip() if sep and rest.strip() else name
+
+
+def recent_locations(
+    count: int, weeks: int, spread: bool, delay: float = 0, coarse: bool = False
+) -> dict:
     # one cached fetch of the widest window serves every count/weeks combination
     now = time.time()
     end = now - delay
@@ -183,6 +202,9 @@ def recent_locations(count: int, weeks: int, spread: bool, delay: float = 0) -> 
         p for p in takewhile(lambda p: p[0] >= cutoff, cached("recent", recent_located_photos))
         if p[0] <= end
     ]
+    if coarse:
+        # before dedup and spread so names that collapse together still count as one
+        photos = [(when, coarsen(name)) for when, name in photos]
     if spread:
         return {"locations": spread_out(photos, count, end, cutoff)}
     names = []
